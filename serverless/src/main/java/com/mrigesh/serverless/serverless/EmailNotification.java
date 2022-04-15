@@ -46,17 +46,15 @@ public class EmailNotification implements RequestHandler<SNSEvent, String> {
         Table table = dynamoDB.getTable("TokenTable");
         Table userEmailsTable = dynamoDB.getTable("UsernameTokenTable");
         if(table == null) {
-            context.getLogger().log("Table 'Emails_Sent' is not in dynamoDB.");
+            context.getLogger().log("Table 'TokenTable' is not in dynamoDB.");
             return null;
         } else if (request.getRecords() == null) {
             context.getLogger().log("There are currently no records in the SNS Event.");
             return null;
         }
-        System.out.println("records in table");
-
 
         if(userEmailsTable == null) {
-            context.getLogger().log("Table 'EmailID_Data' is not in dynamoDB.");
+            context.getLogger().log("Table 'TokenTable' is not in dynamoDB.");
             return null;
         }
 
@@ -125,7 +123,7 @@ public class EmailNotification implements RequestHandler<SNSEvent, String> {
                         .withSource(EMAIL_SENDER);
                 emailService.sendEmail(emailRequest);
                 context.getLogger().log("Sent email!");
-                System.out.println("email sent");
+                System.out.println("Email sent");
             } catch (Exception ex) {
                 System.out.println("eroor in sending email");
                 context.getLogger().log(ex.getLocalizedMessage());
