@@ -40,5 +40,5 @@ jobs:
       - name: Create CodeDeploy Deployment
         id: deploy
         run: |
-          cd /serverless/target
+          cd ./serverless/target
           aws lambda update-function-code --function-name csye6225-spring2022 --zip-file fileb://serverless-1.0.0.jar
