@@ -32,29 +32,24 @@ public class EmailNotification implements RequestHandler<SNSEvent, String> {
 
     @Override
     public String handleRequest(SNSEvent request, Context context) {
-        context.getLogger().log("Received event: " + request.toString());
-        context.getLogger().log("Received context: " + context.toString());
-        context.getLogger().log("Received dd: " +  request.getRecords().toString());
-        context.getLogger().log("Received fff: " +  request.getRecords().get(0).toString());
 
         String message = request.getRecords().get(0).getSNS().getMessage();
-        context.getLogger().log("From SNS: " + message);
+        context.getLogger().log("SNS: " + message);
 
-        // confirm dynamoDB table exists
         AmazonDynamoDB client = AmazonDynamoDBClientBuilder.standard().build();
         dynamoDB = new DynamoDB(client);
         Table table = dynamoDB.getTable("TokenTable");
         Table userEmailsTable = dynamoDB.getTable("UsernameTokenTable");
         if(table == null) {
-            context.getLogger().log("Table 'TokenTable' is not in dynamoDB.");
+            context.getLogger().log("'TokenTable' does not exist");
             return null;
         } else if (request.getRecords() == null) {
-            context.getLogger().log("There are currently no records in the SNS Event.");
+            context.getLogger().log("No records in the SNS Event.");
             return null;
         }
 
         if(userEmailsTable == null) {
-            context.getLogger().log("Table 'TokenTable' is not in dynamoDB.");
+            context.getLogger().log("'TokenTable' does not exist");
             return null;
         }
 
@@ -67,31 +62,26 @@ public class EmailNotification implements RequestHandler<SNSEvent, String> {
         url.append(msgInfo.get(2));
         String userEmail = msgInfo.get(1);
         //create token
-        String linktoSendUser="http://demo.mrigeshdasgupta.me/verifyUserEmail?email="+userEmail+"&token="+msgInfo.get(2);
+        String linktoSendUser="https://demo.mrigeshdasgupta.me/verifyUserEmail?email="+userEmail+"&token="+msgInfo.get(2);
         //append to url
         //url.append(token);
-        emailMsgSB.append("Hi, Username: ").append(userEmail).append("\n");
+        emailMsgSB.append("Hello, Username: ").append(userEmail).append("\n");
         if (msgInfo.get(0).equals("POST")) {
-            emailMsgSB.append("Click on this link to verify username ").append(linktoSendUser);
+            emailMsgSB.append("Click on this unique link to verify account ").append(linktoSendUser);
             emailMsgSB.insert(0, "Verify.\n\n");
-            EMAIL_SUBJECT = "Verify your user account";
+            EMAIL_SUBJECT = "Account Verification Link";
         } else {
-            emailMsgSB.insert(0, "POST no request.\n\n");
-            EMAIL_SUBJECT = "Post not request";
+            emailMsgSB.insert(0, "Invalid Request.\n\n");
+            EMAIL_SUBJECT = "Invalid Request";
         }
 
         // send email if no duplicate in dynamoDB
         String emailMsg = emailMsgSB.toString();
         Item item = table.getItem("emailID",userEmail);
-        System.out.println("item= "+item);
         if (item == null) {
 
             PutItemOutcome outcome  = table
                     .putItem(new Item().withPrimaryKey("emailID", userEmail).with("emailmsg", emailMsg));
-
-            System.out.println("PutItem succeeded:\n" + outcome.getPutItemResult());
-
-            //System.currentTimeMillis() / 1000L;
 
             long now = Instant.now().getEpochSecond(); // unix time
             long ttl = 60 * 2; // 2 mins in sec
@@ -105,11 +95,6 @@ public class EmailNotification implements RequestHandler<SNSEvent, String> {
             outcome  = userEmailsTable
                     .putItem(new Item().withPrimaryKey("emailID", userEmail).with("TimeToLive", ttl).with("Token",Integer.parseInt(msgInfo.get(2))));
 
-
-            System.out.println("PutItem in second succeeded:  \n" + outcome.getPutItemResult());
-
-            System.out.println("TTL is: "+ttl);
-
             Content content = new Content().withData(emailMsg);
             Body emailBody = new Body().withText(content);
             try {
@@ -122,15 +107,13 @@ public class EmailNotification implements RequestHandler<SNSEvent, String> {
                                 .withSubject(new Content().withCharset("UTF-8").withData(EMAIL_SUBJECT)))
                         .withSource(EMAIL_SENDER);
                 emailService.sendEmail(emailRequest);
-                context.getLogger().log("Sent email!");
-                System.out.println("Email sent");
             } catch (Exception ex) {
-                System.out.println("eroor in sending email");
+                System.out.println("Email not sent");
                 context.getLogger().log(ex.getLocalizedMessage());
             }
         }
         else{
-            System.out.println("email already send");
+            System.out.println("Email has been sent");
         }
 
         return null;
